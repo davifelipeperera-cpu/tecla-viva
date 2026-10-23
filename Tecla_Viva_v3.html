@@ -1,0 +1,1337 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}
+  /* Mãos ilustradas e animações de digitação */
+  .hands { width:min(100%,560px); margin-inline:auto; }
+  .hands svg { overflow:visible; }
+  .hands .hand-palm { fill:var(--surface2); stroke:var(--line); stroke-width:2.5; }
+  .hands .hand-finger { fill:var(--surface); stroke:var(--line); stroke-width:2.5; stroke-linejoin:round; transform-box:fill-box; transform-origin:50% 100%; transition:fill .12s ease, transform .12s ease, filter .12s ease; }
+  .hands .hand-finger.on { fill:var(--fc); stroke:var(--ink); filter:drop-shadow(0 2px 2px #17234430); }
+  .hands .hand-finger.press { transform:translateY(5px) scale(.98); }
+  .hands .hand-finger.miss { fill:var(--red)!important; animation:handMiss .22s ease; }
+  .hands .hand-nail { fill:#ffffff80; stroke:var(--line); stroke-width:1.2; pointer-events:none; }
+  .hands .hand-wrist { fill:var(--surface2); stroke:var(--line); stroke-width:2.5; }
+  .hands .hand-label { font:600 11px var(--font-ui); fill:var(--muted); letter-spacing:.12em; text-anchor:middle; }
+  .key { transition:transform .08s ease, background .1s ease, box-shadow .1s ease; }
+  .key.hit { animation:keyHit .14s ease; }
+  .key.miss { animation:keyMiss .2s ease; }
+  @keyframes keyHit { 0%{transform:translateY(0)} 45%{transform:translateY(3px);box-shadow:inset 0 2px 4px #14234a30} 100%{transform:translateY(0)} }
+  @keyframes keyMiss { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-2px)} 75%{transform:translateX(2px)} }
+  @keyframes handMiss { 0%,100%{transform:translateY(0)} 50%{transform:translateY(3px)} }
+  .profile-card { display:grid; gap:12px; }
+  .profile-fields { display:grid; grid-template-columns:1fr auto; gap:8px; align-items:end; }
+  .profile-fields .field { min-width:0; }
+  .profile-state { color:var(--muted); font-size:13px; }
+  .sound-toggle { display:flex; gap:10px; align-items:center; }
+  @media(max-width:560px){ .profile-fields { grid-template-columns:1fr; } .hands { width:100%; } }
+  @media(prefers-reduced-motion:reduce){ .hands .hand-finger,.key { transition:none; } .key.hit,.key.miss,.hands .hand-finger.miss { animation:none; } }
+
+</style></head><body>
+<title>Tecla Viva</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..125,400..900&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  /* Layout: coluna única de 880px. Cabeçalho enxuto, trilha de 10 níveis agrupada por fase,
+     tela de treino com texto grande em mono, teclado-guia com cor por dedo e certificado ao final.
+     Visual: papel azulado de máquina de escrever, tinta azul-marinho e fita vermelha para os erros. */
+  :root {
+    --bg: #e9eef6;
+    --surface: #f8fafd;
+    --surface2: #eef2f9;
+    --ink: #0f1b3a;
+    --muted: #55617f;
+    --line: #cbd5e8;
+    --blue: #2547d9;
+    --blue-ink: #ffffff;
+    --red: #c9253a;
+    --green: #12804f;
+    --err-bg: #fbd9de;
+    --cur-bg: #d3dcff;
+    --f-p: #8e4fd0;
+    --f-r: #2f6fe0;
+    --f-m: #0f9a8a;
+    --f-i: #d08a12;
+    --f-t: #7b86a3;
+    --font-ui: "Archivo", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0b1020; --surface: #131a30; --surface2: #19213b; --ink: #e8edfb; --muted: #9aa6c9;
+      --line: #27315a; --blue: #7c93ff; --blue-ink: #0b1020; --red: #ff7285; --green: #4fd69a;
+      --err-bg: #4a1d2a; --cur-bg: #2a3a78;
+      --f-p: #c08cf2; --f-r: #6da2ff; --f-m: #3fd1bf; --f-i: #f0b04a; --f-t: #8b95b3;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0b1020; --surface: #131a30; --surface2: #19213b; --ink: #e8edfb; --muted: #9aa6c9;
+    --line: #27315a; --blue: #7c93ff; --blue-ink: #0b1020; --red: #ff7285; --green: #4fd69a;
+    --err-bg: #4a1d2a; --cur-bg: #2a3a78;
+    --f-p: #c08cf2; --f-r: #6da2ff; --f-m: #3fd1bf; --f-i: #f0b04a; --f-t: #8b95b3;
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html, body { margin: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font: 400 16px/1.5 var(--font-ui);
+    padding-block: 20px 40px;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 880px; margin: 0 auto; display: flex; flex-direction: column; gap: 22px; min-width: 0; }
+  h1, h2, h3, p { margin: 0; }
+  h1 { font-size: clamp(28px, 5vw, 42px); line-height: 1.08; font-weight: 800; font-stretch: 118%; letter-spacing: -0.02em; text-wrap: balance; }
+  .lead { color: var(--muted); max-width: 60ch; }
+  button { font-family: inherit; }
+  :focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+
+  /* cabeçalho */
+  .top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 16px; }
+  .brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
+  .mark { width: 40px; height: 40px; flex: none; border-radius: 10px; background: var(--ink); color: var(--bg); display: grid; place-items: center; font: 600 20px var(--font-mono); box-shadow: 0 3px 0 var(--blue); }
+  .brand b { display: block; font-weight: 800; font-stretch: 115%; font-size: 20px; line-height: 1.1; letter-spacing: -0.01em; }
+  .brand span { font-size: 13px; color: var(--muted); }
+  .nav { display: flex; gap: 6px; flex-wrap: wrap; }
+  .tab { appearance: none; background: transparent; border: 1px solid transparent; color: var(--muted); padding: 8px 14px; border-radius: 10px; font-size: 15px; font-weight: 600; cursor: pointer; }
+  .tab:hover { color: var(--ink); }
+  .tab[aria-current="page"] { background: var(--surface); border-color: var(--line); color: var(--ink); }
+
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 18px; min-width: 0; }
+  .panel { display: flex; flex-direction: column; gap: 14px; }
+  .chk { display: flex; gap: 10px; align-items: flex-start; cursor: pointer; }
+  .chk input { margin-top: 4px; width: 18px; height: 18px; accent-color: var(--blue); }
+  .chk small { display: block; color: var(--muted); }
+  .row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; }
+  .muted { color: var(--muted); font-size: 14px; }
+
+  .btn { appearance: none; border: 1px solid var(--line); background: var(--surface); color: var(--ink); padding: 11px 18px; border-radius: 12px; font-size: 15px; font-weight: 700; cursor: pointer; transition: transform .08s ease, background .12s ease; }
+  .btn:hover { background: var(--surface2); }
+  .btn:active { transform: translateY(1px); }
+  .btn.primary { background: var(--blue); border-color: var(--blue); color: var(--blue-ink); }
+  .btn.primary:hover { filter: brightness(1.08); background: var(--blue); }
+  .btn.danger { color: var(--red); }
+  .btn[disabled] { opacity: .5; cursor: not-allowed; }
+
+  /* trilha */
+  .overview { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 14px 20px; align-items: center; }
+  .ov-num { font: 600 34px/1 var(--font-mono); letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
+  .ov-num small { font-size: 15px; color: var(--muted); font-weight: 500; letter-spacing: 0; }
+  .bar { height: 10px; background: var(--surface2); border: 1px solid var(--line); border-radius: 99px; overflow: hidden; margin-top: 12px; }
+  .bar i { display: block; height: 100%; background: var(--blue); width: 0; border-radius: 99px; transition: width .35s ease; }
+  .levels { display: flex; flex-direction: column; gap: 10px; }
+  .grp { font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); font-weight: 700; margin: 12px 4px 0; }
+  .grp:first-child { margin-top: 0; }
+  .lv { display: grid; grid-template-columns: 44px minmax(0, 1fr) auto; grid-template-areas: "b i a" "b s a"; gap: 2px 14px; align-items: center; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; }
+  .lv.cur { border-color: var(--blue); box-shadow: 0 0 0 1px var(--blue); }
+  .lv.lock { opacity: .62; }
+  .badge { grid-area: b; width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center; background: var(--surface2); border: 1px solid var(--line); font: 600 18px var(--font-mono); }
+  .lv.done .badge { background: var(--green); border-color: var(--green); color: #fff; }
+  .lv.cur .badge { background: var(--blue); border-color: var(--blue); color: var(--blue-ink); }
+  .info { grid-area: i; min-width: 0; }
+  .nm { font-weight: 800; font-stretch: 108%; }
+  .fc { color: var(--muted); font-size: 14px; }
+  .sub { grid-area: s; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; font-size: 13px; color: var(--muted); }
+  .sub .mono { font-family: var(--font-mono); }
+  .dots { display: inline-flex; gap: 5px; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; border: 2px solid var(--line); }
+  .dot.on { background: var(--green); border-color: var(--green); }
+  .act { grid-area: a; }
+  .locked { font-size: 13px; color: var(--muted); font-weight: 600; }
+  .cert-row { margin-top: 4px; }
+
+  /* treino */
+  .tbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 14px; }
+  .tinfo { display: flex; flex-direction: column; align-items: center; line-height: 1.25; }
+  .tinfo strong { font-weight: 800; font-stretch: 112%; }
+  .tinfo span { color: var(--muted); font-size: 14px; }
+  .link { appearance: none; background: none; border: 0; color: var(--blue); font-weight: 700; font-size: 15px; cursor: pointer; padding: 8px 4px; }
+  .stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+  .tile { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; min-width: 0; }
+  .tile label { display: block; font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); font-weight: 700; }
+  .tile .v { font: 600 28px/1.15 var(--font-mono); font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+  .tile .v.ok { color: var(--green); }
+  .tile .v.bad { color: var(--red); }
+  .tile .m { font-size: 12px; color: var(--muted); min-height: 18px; }
+  .textcard { position: relative; padding: 22px 22px 26px; cursor: text; }
+  .textcard.focused { border-color: var(--blue); box-shadow: 0 0 0 1px var(--blue); }
+  .text { font-family: var(--font-mono); font-size: clamp(18px, 2.6vw, 26px); line-height: 1.8; color: var(--muted); user-select: none; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .c { border-radius: 3px; }
+  .c.ok { color: var(--ink); }
+  .c.cur { background: var(--cur-bg); color: var(--ink); box-shadow: 0 3px 0 var(--blue); }
+  .c.bad { background: var(--err-bg); color: var(--red); box-shadow: 0 3px 0 var(--red); }
+  .focushint { position: absolute; right: 14px; top: 10px; font-size: 12px; font-weight: 700; color: var(--blue); }
+  .textcard.focused .focushint { display: none; }
+  .sr { position: absolute; left: 0; top: 0; width: 1px; height: 1px; opacity: 0; pointer-events: none; border: 0; padding: 0; }
+  .guide { display: flex; flex-direction: column; gap: 12px; align-items: center; }
+  .hint { min-height: 26px; font-size: 15px; color: var(--muted); text-align: center; }
+  .hint b { font-family: var(--font-mono); color: var(--ink); background: var(--surface2); border: 1px solid var(--line); border-radius: 6px; padding: 0 8px; }
+  .kb { --u: clamp(26px, 5vw, 44px); display: flex; flex-direction: column; gap: 4px; align-items: center; user-select: none; }
+  .krow { display: flex; gap: 4px; justify-content: center; }
+  .key { width: var(--u); height: var(--u); border-radius: 8px; background: var(--surface); border: 1px solid var(--line); border-bottom: 3px solid var(--fc, var(--line)); display: flex; flex-direction: column; align-items: center; justify-content: center; font: 500 calc(var(--u) * .38) var(--font-mono); color: var(--ink); line-height: 1.05; }
+  .key .sh { font-size: calc(var(--u) * .26); color: var(--muted); }
+  .key.wide { width: calc(var(--u) * 1.7); font-size: calc(var(--u) * .28); color: var(--muted); }
+  .key.sp { width: calc(var(--u) * 7); }
+  .key.next { background: var(--blue); color: var(--blue-ink); border-color: var(--blue); }
+  .key.next .sh { color: inherit; opacity: .85; }
+  .f-lp, .f-rp { --fc: var(--f-p); }
+  .f-lr, .f-rr { --fc: var(--f-r); }
+  .f-lm, .f-rm { --fc: var(--f-m); }
+  .f-li, .f-ri { --fc: var(--f-i); }
+  .f-th { --fc: var(--f-t); }
+  .hands { width: min(100%, 520px); }
+  .hands svg { display: block; width: 100%; height: auto; }
+  .hands .palm { fill: var(--surface2); stroke: var(--line); stroke-width: 2; }
+  .hands .lbl { font: 600 11px var(--font-ui); fill: var(--muted); letter-spacing: .14em; text-anchor: middle; }
+  .hands .fg { fill: var(--surface); stroke: var(--line); stroke-width: 2; transition: fill .12s ease; }
+  .hands .fg.on { fill: var(--fc); stroke: var(--ink); }
+  .hands .bd { display: none; }
+  .hands .bd.on { display: block; }
+  .hands .bd circle { fill: var(--surface); stroke: var(--ink); stroke-width: 2; }
+  .hands .bd text { font: 600 11px var(--font-mono); fill: var(--ink); text-anchor: middle; dominant-baseline: central; }
+  .legend { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 16px; font-size: 12px; color: var(--muted); }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+  @media (max-width: 560px) { .kb { display: none; } .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+  /* resultado */
+  .res { display: flex; flex-direction: column; gap: 18px; }
+  .res-top { display: flex; flex-direction: column; gap: 8px; }
+  .res-tag { align-self: flex-start; font-size: 12px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; padding: 4px 10px; border-radius: 99px; background: var(--surface2); border: 1px solid var(--line); color: var(--muted); }
+  .res-tag.pass { background: var(--green); border-color: var(--green); color: #fff; }
+  .res-tag.fail { background: var(--err-bg); border-color: var(--red); color: var(--red); }
+  .res .stats { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  @media (max-width: 560px) { .res .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  .res-dots { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 14px; }
+  .res-dots .dot { width: 14px; height: 14px; }
+
+  .history-row { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:8px 12px; padding:12px 0; border-bottom:1px solid var(--line); }
+  .history-row:last-child { border-bottom:0; }
+  .history-row .detail { color:var(--muted); font-size:13px; }
+  .save-ok { color:var(--green); } .save-warn { color:var(--red); }
+  /* certificado */
+  .field { display: flex; flex-direction: column; gap: 6px; max-width: 460px; }
+  .field label { font-weight: 700; font-size: 14px; }
+  .field input { font: 500 17px var(--font-ui); padding: 11px 14px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); width: 100%; }
+  .certbox { border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: #fbfcff; box-shadow: 0 10px 30px -18px rgba(15, 27, 58, .5); }
+  .note { font-size: 13px; color: var(--muted); }
+  footer.note { text-align: center; padding-top: 6px; }
+
+  @media (max-width: 640px) {
+    .lv { grid-template-columns: 44px minmax(0, 1fr); grid-template-areas: "b i" "b s" ". a"; }
+    .act .btn { width: 100%; }
+    .overview { grid-template-columns: 1fr; }
+    .tinfo { align-items: flex-start; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .bar i, .btn { transition: none; }
+  }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <div class="mark" aria-hidden="true">T</div>
+      <div><b>Tecla Viva</b><span>Academia de Digitação</span></div>
+    </div>
+    <nav class="nav" aria-label="Seções">
+      <button class="tab" id="tabTrail" type="button">Trilha</button>
+      <button class="tab" id="tabStats" type="button">Estatísticas</button>
+      <button class="tab" id="tabCert" type="button">Certificado</button>
+      <button class="tab" id="tabProfile" type="button">Entrar / Perfil</button>
+      <button class="tab" id="tabSet" type="button" aria-expanded="false" aria-controls="settings">Ajustes</button>
+    </nav>
+  </header>
+
+
+  <section id="profilePanel" class="card panel profile-card" hidden aria-labelledby="profileTitle">
+    <div>
+      <h2 id="profileTitle">Entrar no Tecla Viva</h2>
+      <p class="lead" style="margin-top:8px">Crie um perfil neste navegador para separar seu progresso e recuperá-lo ao voltar.</p>
+    </div>
+    <div class="profile-fields">
+      <div class="field">
+        <label for="profileEmail">E-mail do perfil</label>
+        <input id="profileEmail" type="email" maxlength="120" autocomplete="email" placeholder="voce@exemplo.com">
+      </div>
+      <button class="btn primary" id="btnProfileLogin" type="button">Entrar / criar perfil</button>
+    </div>
+    <div class="row" style="justify-content:space-between">
+      <span id="profileStatus" class="profile-state" role="status">Nenhum perfil selecionado.</span>
+      <button class="btn" id="btnProfileLogout" type="button">Sair do perfil</button>
+    </div>
+    <p class="note"><strong>Importante:</strong> este perfil é local, não valida a identidade e não sincroniza entre dispositivos. Para login real por e-mail e sincronização na nuvem, é necessário conectar um serviço de autenticação e banco de dados. Use a cópia de segurança para transferir seu progresso por enquanto.</p>
+    <div class="row">
+      <button class="btn" id="btnProfileBackup" type="button">Baixar backup do progresso</button>
+      <button class="btn" id="btnProfileRestore" type="button">Restaurar backup</button>
+    </div>
+  </section>
+
+  <section id="settings" class="card panel" hidden>
+    <label class="chk sound-toggle" for="optSound">
+      <input type="checkbox" id="optSound" checked>
+      <span>Sons de acerto e erro<small>Um som curto confirma a tecla correta; outro som avisa quando há erro.</small></span>
+    </label>
+    <label class="chk" for="optLenient">
+      <input type="checkbox" id="optLenient">
+      <span>Aceitar letras sem acento<small>Útil em teclados sem Ç, ´ e ~ ou no celular. As metas continuam as mesmas.</small></span>
+    </label>
+    <div class="row">
+      <button class="btn danger" id="btnReset" type="button">Recomeçar o curso do zero</button>
+      <span class="muted" id="resetNote"></span>
+    </div>
+    <div class="row">
+      <button class="btn" id="btnExport" type="button">Baixar cópia de segurança</button>
+      <button class="btn" id="btnImport" type="button">Restaurar cópia</button>
+      <input id="importFile" type="file" accept="application/json,.json" hidden>
+    </div>
+    <p class="note">O progresso é salvo automaticamente neste navegador e, quando disponível, na sua conta. <strong id="saveStatus" role="status">Salvamento automático ativo.</strong></p>
+  </section>
+
+  <!-- TRILHA -->
+  <main id="view-trail" class="wrap" style="gap:18px">
+    <div>
+      <h1>Do primeiro dedo ao certificado</h1>
+      <p class="lead" style="margin-top:10px">Dez níveis, três rodadas aprovadas em cada um. Para passar, bata a meta de velocidade (PPM, palavras por minuto) e a meta de precisão da rodada.</p>
+    </div>
+    <div class="card overview">
+      <div>
+        <div class="ov-num"><span id="ovCount">0 de 30</span> <small>rodadas aprovadas</small></div>
+        <div class="bar" role="progressbar" aria-label="Progresso do curso" aria-valuemin="0" aria-valuemax="100" id="ovBarWrap"><i id="ovBar"></i></div>
+        <p class="muted" id="ovText" style="margin-top:10px"></p>
+      </div>
+      <button class="btn primary" id="ctaContinue" type="button">Começar</button>
+    </div>
+    <div class="levels" id="levels"></div>
+  </main>
+
+  <!-- ESTATÍSTICAS -->
+  <main id="view-stats" class="wrap" style="gap:18px" hidden>
+    <div>
+      <h1>Seu progresso em números</h1>
+      <p class="lead" style="margin-top:10px">Acompanhe sua velocidade, precisão e evolução. O histórico começa a ser preenchido a partir desta versão.</p>
+    </div>
+    <div class="stats" id="statsSummary"></div>
+    <section class="card panel">
+      <div class="row" style="justify-content:space-between">
+        <h2>Histórico recente</h2>
+        <button class="btn" id="btnStatsExport" type="button">Exportar dados</button>
+      </div>
+      <div id="statsHistory" class="panel"><p class="muted">Faça uma rodada para começar seu histórico.</p></div>
+    </section>
+    <section class="card panel">
+      <h2>Mais prática, mais variedade</h2>
+      <p class="muted">Cada nível agora tem dois textos extras. Você pode continuar a trilha normalmente para praticá-los sem alterar as metas.</p>
+      <button class="btn primary" id="btnDaily" type="button">Começar desafio de hoje</button>
+      <p class="note" id="dailyNote">O desafio usa um nível já liberado e registra o resultado como uma rodada normal.</p>
+    </section>
+    <button class="btn" id="btnStatsBack" type="button">Voltar à trilha</button>
+  </main>
+
+  <!-- TREINO -->
+  <section id="view-train" class="wrap" style="gap:16px" hidden>
+    <div class="tbar">
+      <button class="link" id="btnBack" type="button">← Trilha</button>
+      <div class="tinfo"><strong id="tLevel"></strong><span id="tRound"></span></div>
+      <button class="btn" id="btnRestart" type="button">Reiniciar (Esc)</button>
+    </div>
+    <div class="stats" aria-live="off">
+      <div class="tile"><label>Velocidade</label><div class="v" id="sWpm">—</div><div class="m" id="mWpm"></div></div>
+      <div class="tile"><label>Precisão</label><div class="v" id="sAcc">100%</div><div class="m" id="mAcc"></div></div>
+      <div class="tile"><label>Tempo</label><div class="v" id="sTime">0:00</div><div class="m">começa na 1ª tecla</div></div>
+      <div class="tile"><label>Erros</label><div class="v" id="sErr">0</div><div class="m">erre e acerte a tecla</div></div>
+    </div>
+    <div class="bar" style="margin-top:0" role="progressbar" aria-label="Progresso do texto" aria-valuemin="0" aria-valuemax="100" id="tProgWrap"><i id="tProg"></i></div>
+    <div class="card textcard" id="textCard">
+      <div class="focushint">Clique aqui para continuar digitando</div>
+      <div class="text" id="text" aria-label="Texto do exercício"></div>
+      <input id="inp" class="sr" type="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="Digite aqui o texto do exercício">
+    </div>
+    <div class="guide">
+      <div class="hint" id="fingerHint"></div>
+      <div class="hands" id="hands" aria-hidden="true"></div>
+      <div class="kb" id="kb" aria-hidden="true"></div>
+      <div class="legend" aria-hidden="true">
+        <span><i style="background:var(--f-p)"></i>mindinho</span>
+        <span><i style="background:var(--f-r)"></i>anelar</span>
+        <span><i style="background:var(--f-m)"></i>médio</span>
+        <span><i style="background:var(--f-i)"></i>indicador</span>
+        <span><i style="background:var(--f-t)"></i>polegar</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- RESULTADO -->
+  <section id="view-result" class="wrap" hidden>
+    <div class="card res" id="resBox" role="status"></div>
+  </section>
+
+  <!-- CERTIFICADO -->
+  <section id="view-cert" class="wrap" style="gap:18px" hidden>
+    <div id="certLocked" class="card" style="display:flex;flex-direction:column;gap:12px" hidden>
+      <h1 style="font-size:clamp(24px,4vw,32px)">Certificado ainda bloqueado</h1>
+      <p class="lead" id="certLockedText"></p>
+      <div><button class="btn primary" id="btnToTrail" type="button">Voltar à trilha</button></div>
+    </div>
+    <div id="certReady" class="wrap" style="gap:16px" hidden>
+      <div>
+        <h1>Seu certificado</h1>
+        <p class="lead" style="margin-top:10px">Digite o nome como deve aparecer no certificado e salve a imagem.</p>
+      </div>
+      <div class="field">
+        <label for="nameInput">Nome completo</label>
+        <input id="nameInput" type="text" maxlength="60" autocomplete="name" placeholder="Seu nome completo">
+      </div>
+      <div class="certbox" id="certBox"></div>
+      <div class="row">
+        <button class="btn primary" id="btnSavePng" type="button" disabled>Salvar como imagem (PNG)</button>
+        <span class="muted" id="certMsg" role="status"></span>
+      </div>
+    </div>
+  </section>
+
+  <footer class="note">A Academia Tecla Viva é uma instituição fictícia criada para este app. O certificado é de prática pessoal e não tem valor oficial.</footer>
+</div>
+
+<script>
+(function () {
+  "use strict";
+  var NEED = 3;
+  var STORE = "tecla-viva-v1";
+  var $ = function (id) { return document.getElementById(id); };
+
+  /* ---------- conteúdo ---------- */
+  var LEVELS = [
+    { n: "Aprendiz", grp: "Fundamentos", focus: "Fileira central: A S D F  J K L Ç", wpm: 10, acc: 90, texts: [
+      "asdf jklç asdf jklç fdsa çlkj",
+      "fjfj dkdk slsl açaç fjfj dkdk",
+      "sala fada dada alas fala assa salsa",
+      "gala galha falha alga haja salga" ] },
+    { n: "Iniciante", grp: "Fundamentos", focus: "Fileira de cima: Q W E R T Y U I O P", wpm: 15, acc: 92, texts: [
+      "tire trio tipo ouro porte tropa pare",
+      "o rato roeu a roupa do rei e a toalha do pai",
+      "ele pegou o jarro e o ergueu alto",
+      "jogue a toalha fria hoje" ] },
+    { n: "Básico", grp: "Fundamentos", focus: "Fileira de baixo e frases curtas", wpm: 20, acc: 93, texts: [
+      "vamos ver um bom exemplo de como escrever bem",
+      "cada letra certa conta para o resultado final",
+      "mantenha os dedos relaxados e o ritmo constante",
+      "quem treina um pouco todo dia melhora bem mais" ] },
+    { n: "Intermediário I", grp: "Intermediário", focus: "Maiúsculas, vírgulas e pontos", wpm: 25, acc: 94, texts: [
+      "Maria comprou cinco livros novos. Pedro leu dois deles.",
+      "Carlos, Paula, Bruno, Lucas e Marcela chegaram cedo.",
+      "Hoje o treino vai bem. Mantenha o ritmo, respire e continue.",
+      "Quem pratica melhora. Quem insiste vence. Siga em frente, passo a passo." ] },
+    { n: "Intermediário II", grp: "Intermediário", focus: "Acentos, til e cedilha", wpm: 30, acc: 95, texts: [
+      "A educação é a base de tudo: aprender é um prazer para qualquer idade.",
+      "Você já praticou hoje? Três minutos por dia fazem uma grande diferença.",
+      "Vamos à praia amanhã cedo, porque a previsão é de sol e o mar está calmo.",
+      "A pesquisa mostrou que várias crianças gostam de histórias de ação e aventura." ] },
+    { n: "Intermediário III", grp: "Intermediário", focus: "Pontuação completa e aspas", wpm: 35, acc: 95, texts: [
+      'Ela perguntou: "Você vem?" Ele respondeu: "Claro; chego às oito, sem falta!"',
+      "Compre pão, leite, café e manteiga; depois, passe na farmácia (fica perto) e volte logo.",
+      "Será que existe um segredo? Talvez sim, talvez não: o segredo é repetir com atenção, todos os dias.",
+      "Atenção! A reunião começa em breve; traga o relatório, a planilha e as anotações da semana." ] },
+    { n: "Avançado I", grp: "Avançado", focus: "Números e símbolos", wpm: 40, acc: 96, texts: [
+      "Pedido 4821: 3 camisas por R$ 59,90 cada, total de R$ 179,70.",
+      "Contato: ana.silva@email.com | tel. (11) 99999-0000 | site: www.exemplo.com.br",
+      "Taxa de 12,5% ao ano; juros de 3% + 2% de multa = 5% no total (valores fictícios).",
+      "Total: 25 * 4 = 100; 100 / 5 = 20; 20 - 8 + 3 = 15. Confira no caderno #7 & anote." ] },
+    { n: "Avançado II", grp: "Avançado", focus: "Textos corridos", wpm: 45, acc: 96, texts: [
+      "Digitar com rapidez e precisão é uma habilidade que se constrói com paciência. No início, os erros são comuns, mas a prática diária cria memória muscular e transforma o esforço em hábito natural.",
+      "Quem trabalha com textos todos os dias sabe que a velocidade só importa quando acompanhada de cuidado. Um relatório sem erros transmite confiança, organização e respeito por quem vai ler.",
+      "O segredo dos bons digitadores não está na força das mãos, mas no ritmo. Teclas pressionadas com leveza, olhos no texto e postura confortável evitam o cansaço e reduzem o número de falhas.",
+      "Cada nova habilidade passa por fases: primeiro a dúvida, depois a repetição e, por fim, a naturalidade. Quando menos se espera, os dedos já sabem o caminho e a mente fica livre para pensar." ] },
+    { n: "Mestre", grp: "Profissional", focus: "Fluência e ritmo", wpm: 50, acc: 97, texts: [
+      "Em 2026, a maior parte do trabalho de escritório depende do teclado: e-mails, planilhas, relatórios e mensagens rápidas. Quem digita bem ganha tempo, reduz o cansaço e entrega resultados com mais qualidade, mesmo nos dias de maior correria.",
+      "A leitura ajuda a digitar melhor, pois o cérebro reconhece palavras inteiras e antecipa o próximo movimento dos dedos. Por isso, vale a pena treinar com textos variados: notícias, contos, receitas e até listas de compras com preços e quantidades.",
+      "Antes de uma entrevista importante, Helena revisou o currículo duas vezes, ajustou o título, corrigiu a pontuação e enviou o arquivo às 9h30. Pequenos cuidados como esses mostram atenção aos detalhes e fazem toda a diferença no resultado.",
+      "Uma boa rotina de treino tem três partes: aquecimento com letras simples, exercícios de média dificuldade e, para terminar, um texto longo sem pressa. Registre seu progresso, comemore as pequenas vitórias e ajuste as metas sempre que for preciso." ] },
+    { n: "Exame Profissional", grp: "Profissional", focus: "Exame final com texto longo", wpm: 60, acc: 97, texts: [
+      "Ao longo deste curso, você percorreu todos os níveis da trilha: da fileira central aos textos longos, passando por acentos, pontuação, números e símbolos. Agora, mantenha o ritmo, confie nos dedos e conclua o exame com calma e precisão. Cada tecla certa aproxima você do seu certificado de conclusão.",
+      "A digitação profissional exige constância: postura correta, punhos apoiados, olhos no texto e dedos nas posições de origem. Em atividades como transcrição, atendimento ao cliente e redação, a combinação de velocidade e exatidão economiza horas de trabalho ao longo do mês e melhora a qualidade das entregas.",
+      "Os maiores digitadores do mundo ultrapassam 150 palavras por minuto, mas muitos profissionais trabalham confortavelmente entre 40 e 70. O mais importante é manter a precisão acima de 97%, porque corrigir erros consome tempo e atenção. Treine todos os dias, mesmo que por poucos minutos.",
+      "Parabéns por chegar até aqui! Digitar bem é como tocar um instrumento: no começo parece difícil, depois vira música. Respire fundo, olhe para o texto e deixe os dedos conduzirem o ritmo até a última palavra do exame. Você já provou que é capaz; falta só terminar com elegância." ] }
+  ];
+
+  /* Textos extras: ampliam a variedade sem alterar metas, níveis ou certificados. */
+  var EXTRA_TEXTS = [
+    ["dedos leves, postura firme e ritmo constante", "asdf jklç; asdf jklç; dedos no lugar"],
+    ["o treino frequente melhora a memória muscular", "digite com calma e olhe menos para as teclas"],
+    ["um pouco de prática por dia gera bons resultados", "respire, mantenha a postura e continue tentando"],
+    ["A prática constante ajuda a escrever com mais confiança.", "Digite cada frase com atenção, ritmo e precisão."],
+    ["Você está evoluindo: atenção aos acentos, vírgulas e pontos.", "A digitação correta começa com calma e termina com consistência."],
+    ["Organize as ideias, revise o texto e digite com clareza.", "A velocidade aumenta quando a precisão vira hábito."],
+    ["Projetos bem feitos dependem de foco, prática e revisão.", "Uma boa rotina de estudo transforma pequenos avanços em resultados."],
+    ["Ao programar, cada caractere e cada espaço podem fazer diferença.", "Leia o enunciado, planeje a solução e escreva com atenção."],
+    ["Em uma prova, controle o tempo sem abandonar a precisão.", "Mantenha o ritmo mesmo diante de frases longas e pontuação."],
+    ["O domínio da digitação exige velocidade, precisão e regularidade.", "No exame final, confie no treino e mantenha a concentração."]
+  ];
+  LEVELS.forEach(function (level, i) { level.texts = level.texts.concat(EXTRA_TEXTS[i]); });
+
+
+  /* ---------- teclado ABNT2 ---------- */
+  var FINGER = { lp: "mindinho esquerdo", lr: "anelar esquerdo", lm: "médio esquerdo", li: "indicador esquerdo",
+                 ri: "indicador direito", rm: "médio direito", rr: "anelar direito", rp: "mindinho direito", th: "polegar" };
+  var ROWS = [
+    [["'", '"', "lp"], ["1", "!", "lp"], ["2", "@", "lr"], ["3", "#", "lm"], ["4", "$", "li"], ["5", "%", "li"], ["6", "¨", "ri"], ["7", "&", "ri"], ["8", "*", "rm"], ["9", "(", "rr"], ["0", ")", "rp"], ["-", "_", "rp"], ["=", "+", "rp"]],
+    [["q", null, "lp"], ["w", null, "lr"], ["e", null, "lm"], ["r", null, "li"], ["t", null, "li"], ["y", null, "ri"], ["u", null, "ri"], ["i", null, "rm"], ["o", null, "rr"], ["p", null, "rp"], ["´", "`", "rp"], ["[", "{", "rp"]],
+    [["a", null, "lp"], ["s", null, "lr"], ["d", null, "lm"], ["f", null, "li"], ["g", null, "li"], ["h", null, "ri"], ["j", null, "ri"], ["k", null, "rm"], ["l", null, "rr"], ["ç", null, "rp"], ["~", "^", "rp"], ["]", "}", "rp"]],
+    [["shiftL", null, "lp"], ["\\", "|", "lp"], ["z", null, "lp"], ["x", null, "lr"], ["c", null, "lm"], ["v", null, "li"], ["b", null, "li"], ["n", null, "ri"], ["m", null, "ri"], [",", "<", "rm"], [".", ">", "rr"], [";", ":", "rp"], ["/", "?", "rp"], ["shiftR", null, "rp"]],
+    [["space", null, "th"]]
+  ];
+  var KEYS = {}, KMAP = {};
+  var DEAD = { "´": ["´", false], "`": ["´", true], "~": ["~", false], "^": ["~", true] };
+  var ACC = { "á": ["´", "a"], "é": ["´", "e"], "í": ["´", "i"], "ó": ["´", "o"], "ú": ["´", "u"], "à": ["`", "a"],
+              "â": ["^", "a"], "ê": ["^", "e"], "ô": ["^", "o"], "ã": ["~", "a"], "õ": ["~", "o"] };
+  ROWS.forEach(function (row) {
+    row.forEach(function (k) {
+      var id = k[0], sh = k[1], f = k[2];
+      KEYS[id] = { id: id, sh: sh, f: f };
+      if (id === "shiftL" || id === "shiftR" || id === "space") return;
+      KMAP[id] = [{ id: id, shift: false }];
+      if (sh) KMAP[sh] = [{ id: id, shift: true }];
+      else KMAP[id.toUpperCase()] = [{ id: id, shift: true }];
+    });
+  });
+  KMAP[" "] = [{ id: "space", shift: false }];
+  Object.keys(ACC).forEach(function (c) {
+    var d = DEAD[ACC[c][0]], b = ACC[c][1];
+    KMAP[c] = [{ id: d[0], shift: d[1] }, { id: b, shift: false }];
+    KMAP[c.toUpperCase()] = [{ id: d[0], shift: d[1] }, { id: b, shift: true }];
+  });
+  function shiftSide(f) { return f.charAt(0) === "l" ? "shiftR" : "shiftL"; }
+  function strip(c) { return c.normalize("NFD").replace(/[̀-ͯ]/g, ""); }
+
+  var kb = $("kb");
+  ROWS.forEach(function (row) {
+    var r = document.createElement("div");
+    r.className = "krow";
+    row.forEach(function (k) {
+      var id = k[0], sh = k[1], f = k[2];
+      var d = document.createElement("div");
+      d.className = "key f-" + f;
+      d.setAttribute("data-id", id);
+      if (id === "shiftL" || id === "shiftR") { d.className += " wide"; d.textContent = "Shift"; }
+      else if (id === "space") { d.className += " sp"; d.textContent = ""; }
+      else if (sh) {
+        var a = document.createElement("span"); a.className = "sh"; a.textContent = sh;
+        var b = document.createElement("span"); b.textContent = id;
+        d.appendChild(a); d.appendChild(b);
+      } else { d.textContent = id.toUpperCase(); }
+      r.appendChild(d);
+    });
+    kb.appendChild(r);
+  });
+  function keyEl(id) { return kb.querySelector('.key[data-id="' + (window.CSS && CSS.escape ? CSS.escape(id) : id) + '"]'); }
+  function mark(id) { var e = keyEl(id); if (e) e.classList.add("next"); }
+
+  /* ---------- desenho das mãos: silhueta anatômica estilizada ---------- */
+  var FG = {}, BD = {};
+  (function () {
+    var svg = '<svg viewBox="0 0 560 245" role="presentation" aria-hidden="true">';
+    function finger(side, key, d, nail) {
+      var code = side + key;
+      return '<g class="hand-finger f-' + code + '" data-f="' + code + '">' +
+        '<path d="' + d + '"/>' + (nail ? '<path class="hand-nail" d="' + nail + '"/>' : '') + '</g>';
+    }
+    ["l","r"].forEach(function(side) {
+      var flip = side === "r" ? ' transform="translate(560 0) scale(-1 1)"' : '';
+      svg += '<g' + flip + '>';
+      svg += '<path class="hand-wrist" d="M65 188 Q70 215 92 230 L196 230 Q218 213 220 188 Z"/>';
+      svg += '<path class="hand-palm" d="M69 164 Q65 145 80 132 L88 111 Q91 102 100 106 Q108 109 105 119 L100 137 L111 130 L112 71 Q112 55 124 55 Q136 55 136 71 L136 116 L143 112 L145 48 Q146 31 158 32 Q171 33 170 49 L168 114 L176 112 L181 62 Q183 46 195 49 Q207 52 204 67 L197 127 L203 125 Q211 111 222 119 Q232 126 223 139 L208 168 Q198 188 174 193 L111 193 Q83 190 69 164 Z"/>';
+      svg += finger(side,'p','M87 142 Q78 130 67 116 Q58 104 49 113 Q41 122 51 134 L77 160 Q85 166 94 159 Z','M57 120 Q62 116 68 123 L78 135 Q72 140 67 135 Z');
+      svg += finger(side,'r','M112 116 L112 71 Q112 55 124 55 Q136 55 136 71 L136 117 Q124 124 112 116 Z','M117 66 Q124 60 131 66 L131 74 L117 74 Z');
+      svg += finger(side,'m','M145 115 L145 48 Q146 31 158 32 Q171 33 170 49 L168 116 Q157 122 145 115 Z','M150 43 Q158 37 165 44 L165 51 L150 51 Z');
+      svg += finger(side,'i','M181 119 L181 62 Q183 46 195 49 Q207 52 204 67 L197 128 Q188 133 181 119 Z','M186 60 Q193 54 201 61 L200 68 L186 68 Z');
+      svg += finger(side,'th','M190 155 Q199 143 210 133 Q221 122 229 132 Q236 141 225 151 L205 174 Q197 181 188 171 Z','M216 136 Q222 134 226 140 L218 148 L212 143 Z');
+      svg += '</g>';
+      var xBase = side === "l" ? 128 : 432;
+      [["p",xBase-75,155],["r",xBase-28,82],["m",xBase+5,62],["i",xBase+38,80],["th",xBase+70,155]].forEach(function(it) {
+        svg += '<g class="bd" data-b="' + side + it[0] + '"><circle cx="' + it[1] + '" cy="' + it[2] + '" r="11"/><text x="' + it[1] + '" y="' + (it[2]+4) + '"></text></g>';
+      });
+      svg += '<text class="hand-label" x="' + (side === "l" ? 145 : 415) + '" y="20">' + (side === "l" ? "MÃO ESQUERDA" : "MÃO DIREITA") + '</text>';
+    });
+    svg += '</svg>';
+    $("hands").innerHTML = svg;
+    Array.prototype.forEach.call($("hands").querySelectorAll("[data-f]"), function(e) { FG[e.getAttribute("data-f")] = e; });
+    Array.prototype.forEach.call($("hands").querySelectorAll("[data-b]"), function(e) { BD[e.getAttribute("data-b")] = e; });
+  })();
+  function clearHands() {
+    Object.keys(FG).forEach(function(k) { FG[k].classList.remove("on","press","miss"); });
+    Object.keys(BD).forEach(function(k) { BD[k].classList.remove("on"); });
+  }
+  function lightFingers(list) {
+    var by = {};
+    list.forEach(function(it) {
+      var codes = it[0] === "th" ? ["lth","rth"] : [it[0]];
+      codes.forEach(function(c) { (by[c] = by[c] || []).push(it[1]); });
+    });
+    Object.keys(by).forEach(function(c) {
+      if (!FG[c]) return;
+      FG[c].classList.add("on");
+      if (BD[c]) {
+        BD[c].classList.add("on");
+        var label = BD[c].querySelector("text");
+        if (label) label.textContent = by[c].join(" ");
+      }
+    });
+  }
+
+  /* ---------- estado e persistência ---------- */
+  function fresh() {
+    var L = [];
+    for (var i = 0; i < LEVELS.length; i++) L.push({ p: 0, best: 0, bacc: 0, res: [], t: 0 });
+    return { v: 3, name: "", lenient: false, sound: true, levels: L, rounds: 0, done: null, history: [] };
+  }
+  function normalize(s) {
+    var f = fresh();
+    if (!s || typeof s !== "object") return f;
+    f.name = typeof s.name === "string" ? s.name.slice(0, 60) : "";
+    f.lenient = !!s.lenient;
+    f.sound = s.sound !== false;
+    f.rounds = +s.rounds || 0;
+    f.done = typeof s.done === "string" ? s.done : null;
+    f.history = Array.isArray(s.history) ? s.history.slice(-200).map(function (h) {
+      return { date: typeof h.date === "string" ? h.date : "", level: Math.max(0, Math.min(LEVELS.length - 1, +h.level || 0)),
+        w: Math.max(0, +h.w || 0), a: Math.max(0, Math.min(100, +h.a || 0)), sec: Math.max(0, +h.sec || 0),
+        errors: Math.max(0, +h.errors || 0), pass: !!h.pass };
+    }) : [];
+    if (Array.isArray(s.levels)) {
+      for (var i = 0; i < LEVELS.length; i++) {
+        var x = s.levels[i];
+        if (!x) continue;
+        f.levels[i] = {
+          p: Math.min(NEED, Math.max(0, +x.p || 0)),
+          best: +x.best || 0,
+          bacc: +x.bacc || 0,
+          res: Array.isArray(x.res) ? x.res.slice(0, NEED).map(function (r) { return { w: +(r && r.w) || 0, a: +(r && r.a) || 0 }; }) : [],
+          t: Math.max(0, +x.t || 0) % LEVELS[i].texts.length
+        };
+      }
+    }
+    return f;
+  }
+  var PROFILE_KEY = STORE + "-active-profile";
+  function activeProfile() { try { return localStorage.getItem(PROFILE_KEY) || ""; } catch (e) { return ""; } }
+  function profileStoreKey(email) { return STORE + "-profile-" + encodeURIComponent(String(email || "").trim().toLowerCase()); }
+  function loadLocal() {
+    var email = activeProfile();
+    try {
+      var raw = localStorage.getItem(email ? profileStoreKey(email) : STORE);
+      if (raw) return normalize(JSON.parse(raw));
+    } catch (e) {}
+    try {
+      var backup = localStorage.getItem((email ? profileStoreKey(email) : STORE) + "-backup");
+      if (backup) return normalize(JSON.parse(backup));
+    } catch (e) {}
+    if (!email) {
+      try { var legacy = localStorage.getItem(STORE); if (legacy) return normalize(JSON.parse(legacy)); } catch (e) {}
+    }
+    return fresh();
+  }
+  var state = loadLocal();
+  var currentProfile = activeProfile();
+  var cloud = { ref: null }, queue = Promise.resolve(), dl = null;
+
+  function setSaveStatus(message, ok) {
+    var el = $("saveStatus");
+    if (el) { el.textContent = message; el.className = ok ? "save-ok" : "save-warn"; }
+  }
+  function saveLocal() {
+    try {
+      var key = currentProfile ? profileStoreKey(currentProfile) : STORE;
+      var old = localStorage.getItem(key);
+      if (old) localStorage.setItem(key + "-backup", old);
+      localStorage.setItem(key, JSON.stringify(state));
+      setSaveStatus(currentProfile ? "Progresso salvo no perfil local " + currentProfile + "." : "Progresso salvo neste navegador.", true);
+      return true;
+    } catch (e) {
+      setSaveStatus("Não foi possível salvar localmente. Baixe uma cópia de segurança.", false);
+      return false;
+    }
+  }
+  function pushCloud() {
+    if (!cloud.ref) return;
+    var snap = JSON.parse(JSON.stringify(state));
+    queue = queue.then(function () { return cloud.ref.set({ state: snap, updatedAt: Date.now() }); }).catch(function () {});
+  }
+  function saveState() { saveLocal(); pushCloud(); }
+  function exportBackup() {
+    var payload = { app: "Tecla Viva", formatVersion: 2, exportedAt: new Date().toISOString(), state: state };
+    var blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+    var url = URL.createObjectURL(blob), a = document.createElement("a");
+    a.href = url; a.download = "tecla-viva-backup-" + new Date().toISOString().slice(0,10) + ".json";
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
+    setSaveStatus("Cópia de segurança exportada.", true);
+  }
+  function totalPasses(s) { var n = 0; s.levels.forEach(function (l) { n += l.p; }); return n; }
+  function unlocked(i) { return i === 0 || state.levels[i - 1].p >= NEED; }
+  function currentIdx() { for (var i = 0; i < LEVELS.length; i++) if (state.levels[i].p < NEED) return i; return -1; }
+
+  /* ---------- estatísticas e histórico ---------- */
+  function renderStats() {
+    var h = (state.history || []).slice().reverse();
+    var count = h.length, avgW = 0, avgA = 0, bestW = 0, bestA = 0, passed = 0;
+    h.forEach(function (r) { avgW += r.w; avgA += r.a; bestW = Math.max(bestW, r.w); bestA = Math.max(bestA, r.a); if (r.pass) passed++; });
+    if (count) { avgW = Math.round(avgW / count); avgA = Math.round(avgA / count); }
+    function statTile(label, value, meta) {
+      return '<div class="tile"><label>' + label + '</label><div class="v">' + value + '</div><div class="m">' + meta + '</div></div>';
+    }
+    $("statsSummary").innerHTML =
+      statTile("Rodadas registradas", count, "Histórico disponível") +
+      statTile("Média de velocidade", count ? avgW + " PPM" : "—", "Melhor: " + (count ? bestW + " PPM" : "—")) +
+      statTile("Precisão média", count ? avgA + "%" : "—", "Melhor: " + (count ? bestA + "%" : "—")) +
+      statTile("Rodadas aprovadas", passed, count ? Math.round(passed / count * 100) + "% das rodadas" : "Ainda sem dados");
+    if (!count) {
+      $("statsHistory").innerHTML = '<p class="muted">Ainda não há rodadas registradas neste histórico. Faça um treino para começar a acompanhar sua evolução.</p>';
+      return;
+    }
+    $("statsHistory").innerHTML = h.slice(0, 20).map(function (r) {
+      var date = r.date ? new Date(r.date).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" }) : "Data não disponível";
+      var mins = Math.floor(r.sec / 60), secs = Math.floor(r.sec % 60);
+      return '<div class="history-row"><div><strong>Nível ' + (r.level + 1) + ' · ' + esc(LEVELS[r.level].n) + '</strong><div class="detail">' + date + ' · ' + mins + ':' + (secs < 10 ? '0' : '') + secs + ' · ' + r.errors + ' erros</div></div><div style="text-align:right"><strong>' + r.w + ' PPM</strong><div class="detail">' + r.a + '% · ' + (r.pass ? 'Aprovado' : 'Não aprovado') + '</div></div></div>';
+    }).join("");
+  }
+
+  /* ---------- navegação ---------- */
+  var VIEWS = ["trail", "train", "result", "cert", "stats"];
+  var view = "trail", run = null, spans = [], timer = null, result = null, resultAt = 0;
+  function show(v) {
+    view = v;
+    VIEWS.forEach(function (n) { $("view-" + n).hidden = n !== v; });
+    $("tabTrail").removeAttribute("aria-current");
+    $("tabCert").removeAttribute("aria-current");
+    $("tabStats").removeAttribute("aria-current");
+    if (v === "trail" || v === "train" || v === "result") $("tabTrail").setAttribute("aria-current", "page");
+    if (v === "cert") $("tabCert").setAttribute("aria-current", "page");
+    if (v === "stats") $("tabStats").setAttribute("aria-current", "page");
+    if (v === "stats") renderStats();
+    if (v !== "train") { clearInterval(timer); }
+    if (v === "trail") renderTrail();
+    if (v === "cert") renderCert();
+    try { window.scrollTo(0, 0); } catch (e) {}
+  }
+
+  /* ---------- trilha ---------- */
+  function renderTrail() {
+    var done = totalPasses(state), all = LEVELS.length * NEED, ci = currentIdx();
+    $("ovCount").textContent = done + " de " + all;
+    $("ovBar").style.width = (done / all * 100) + "%";
+    $("ovBarWrap").setAttribute("aria-valuenow", String(Math.round(done / all * 100)));
+    var cta = $("ctaContinue");
+    if (ci === -1) {
+      cta.textContent = "Ver meu certificado"; cta.setAttribute("data-act", "cert");
+      $("ovText").textContent = "Curso concluído. Parabéns!";
+    } else {
+      cta.textContent = (done === 0 ? "Começar" : "Continuar") + ": Nível " + (ci + 1);
+      cta.setAttribute("data-act", "train"); cta.setAttribute("data-i", String(ci));
+      $("ovText").textContent = "Próximo passo: " + LEVELS[ci].n + ", meta de " + LEVELS[ci].wpm + " PPM com " + LEVELS[ci].acc + "% de precisão.";
+    }
+    var html = "", last = "";
+    LEVELS.forEach(function (L, i) {
+      if (L.grp !== last) { html += '<h2 class="grp">' + L.grp + "</h2>"; last = L.grp; }
+      var lv = state.levels[i], open = unlocked(i), isDone = lv.p >= NEED, isCur = i === ci, dots = "";
+      for (var k = 0; k < NEED; k++) dots += '<span class="dot' + (k < lv.p ? " on" : "") + '"></span>';
+      html += '<div class="lv' + (isCur ? " cur" : "") + (open ? "" : " lock") + (isDone ? " done" : "") + '">' +
+        '<div class="badge">' + (isDone ? "✓" : (i + 1)) + "</div>" +
+        '<div class="info"><div class="nm">Nível ' + (i + 1) + " · " + L.n + '</div><div class="fc">' + L.focus + "</div></div>" +
+        '<div class="sub"><span class="mono">Meta ' + L.wpm + " PPM · " + L.acc + '%</span>' +
+        '<span class="dots" role="img" aria-label="' + lv.p + " de " + NEED + ' rodadas aprovadas">' + dots + "</span>" +
+        (lv.best ? '<span class="mono">Melhor: ' + lv.best + " PPM</span>" : "") + "</div>" +
+        '<div class="act">' + (open
+          ? '<button class="btn ' + (isCur ? "primary" : "") + '" type="button" data-act="train" data-i="' + i + '">' + (isDone ? "Treinar de novo" : (lv.p ? "Continuar" : "Começar")) + "</button>"
+          : '<span class="locked">Bloqueado</span>') + "</div></div>";
+    });
+    $("levels").innerHTML = html;
+  }
+
+  function onAct(e) {
+    var b = e.target.closest("[data-act]");
+    if (!b) return;
+    var act = b.getAttribute("data-act");
+    if (act === "train") startRound(+b.getAttribute("data-i"));
+    else if (act === "cert") show("cert");
+  }
+  $("levels").addEventListener("click", onAct);
+  $("ctaContinue").addEventListener("click", onAct);
+
+  /* ---------- sons de acerto e erro ---------- */
+  var audioCtx = null;
+  function playFeedback(correct) {
+    if (!$("optSound") || !$("optSound").checked || state.sound === false) return;
+    try {
+      var AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return;
+      if (!audioCtx) audioCtx = new AC();
+      if (audioCtx.state === "suspended") audioCtx.resume();
+      var osc = audioCtx.createOscillator(), gain = audioCtx.createGain(), now = audioCtx.currentTime;
+      osc.type = correct ? "sine" : "triangle";
+      osc.frequency.setValueAtTime(correct ? 740 : 185, now);
+      if (correct) osc.frequency.exponentialRampToValueAtTime(980, now + 0.055);
+      else osc.frequency.exponentialRampToValueAtTime(115, now + 0.09);
+      gain.gain.setValueAtTime(0.0001, now);
+      gain.gain.exponentialRampToValueAtTime(correct ? 0.075 : 0.10, now + 0.008);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + (correct ? 0.075 : 0.12));
+      osc.connect(gain); gain.connect(audioCtx.destination);
+      osc.start(now); osc.stop(now + (correct ? 0.08 : 0.13));
+    } catch (e) {}
+  }
+  function animateKey(id, correct, fingerCodes) {
+    var key = keyEl(id);
+    if (key) {
+      key.classList.remove("hit","miss");
+      void key.offsetWidth;
+      key.classList.add(correct ? "hit" : "miss");
+      setTimeout(function(){ key.classList.remove("hit","miss"); }, 240);
+    }
+    (fingerCodes || []).forEach(function(code) {
+      var finger = FG[code];
+      if (!finger) return;
+      finger.classList.remove("press","miss");
+      void finger.getBoundingClientRect();
+      finger.classList.add(correct ? "press" : "miss");
+      setTimeout(function(){ finger.classList.remove("press","miss"); }, 260);
+    });
+    playFeedback(correct);
+  }
+  function animateTypedChar(ch, correct) {
+    var c = state.lenient ? strip(ch) : ch, seq = KMAP[c];
+    if (!seq || !seq.length) { playFeedback(correct); return; }
+    var last = seq[seq.length - 1], keyId = last.id;
+    var codes = [];
+    seq.forEach(function(s) {
+      var f = KEYS[s.id] && KEYS[s.id].f;
+      if (f) codes.push(f === "th" ? "lth" : f);
+      if (s.shift) {
+        var shift = shiftSide(f);
+        if (shift && KEYS[shift]) codes.push(KEYS[shift].f);
+      }
+    });
+    var mapped = codes.map(function(c) { return c === "th" ? "lth" : c; });
+    animateKey(keyId, correct, mapped);
+  }
+
+  /* ---------- treino ---------- */
+  var inp = $("inp"), card = $("textCard"), composing = false;
+
+  function startRound(i) {
+    var L = LEVELS[i], lv = state.levels[i];
+    var text = L.texts[lv.t % L.texts.length];
+    run = { i: i, chars: Array.from(text), pos: 0, errors: 0, start: 0, end: 0, done: false };
+    $("tLevel").textContent = "Nível " + (i + 1) + " · " + L.n;
+    $("tRound").textContent = lv.p >= NEED ? "Treino livre" : "Rodada " + (lv.p + 1) + " de " + NEED;
+    $("mWpm").textContent = "Meta " + L.wpm + " PPM";
+    $("mAcc").textContent = "Meta " + L.acc + "%";
+    var box = $("text");
+    box.innerHTML = "";
+    spans = [];
+    run.chars.forEach(function (ch, k) {
+      var s = document.createElement("span");
+      s.className = "c" + (k === 0 ? " cur" : "");
+      s.textContent = ch;
+      box.appendChild(s);
+      spans.push(s);
+    });
+    show("train");
+    updateStats();
+    highlightNext();
+    clearInterval(timer);
+    timer = setInterval(updateStats, 250);
+    inp.value = "";
+    try { inp.focus({ preventScroll: true }); } catch (e) { inp.focus(); }
+  }
+
+  function calc() {
+    var now = run.done ? run.end : performance.now();
+    var sec = run.start ? (now - run.start) / 1000 : 0;
+    var wpm = sec > 0 ? (run.pos / 5) / (sec / 60) : 0;
+    var total = run.pos + run.errors;
+    var acc = total ? run.pos / total * 100 : 100;
+    return { sec: sec, wpm: wpm, acc: acc, errors: run.errors };
+  }
+  function fmtTime(sec) { var s = Math.floor(sec); return Math.floor(s / 60) + ":" + (s % 60 < 10 ? "0" : "") + (s % 60); }
+
+  function updateStats() {
+    if (!run) return;
+    var s = calc(), L = LEVELS[run.i];
+    var live = s.sec >= 2 && run.pos >= 4;
+    var w = Math.floor(s.wpm + 1e-9), a = Math.floor(s.acc + 1e-9);
+    var ew = $("sWpm"), ea = $("sAcc");
+    ew.textContent = live ? String(w) : "—";
+    ew.className = "v" + (live ? (w >= L.wpm ? " ok" : "") : "");
+    ea.textContent = a + "%";
+    ea.className = "v" + (run.errors === 0 ? "" : (a >= L.acc ? " ok" : " bad"));
+    $("sTime").textContent = fmtTime(s.sec);
+    $("sErr").textContent = String(s.errors);
+    var pct = Math.round(run.pos / run.chars.length * 100);
+    $("tProg").style.width = pct + "%";
+    $("tProgWrap").setAttribute("aria-valuenow", String(pct));
+  }
+
+  function highlightNext() {
+    var on = kb.querySelectorAll(".key.next");
+    for (var i = 0; i < on.length; i++) on[i].classList.remove("next");
+    var h = $("fingerHint");
+    h.textContent = "";
+    clearHands();
+    if (!run || run.done) return;
+    var ch = run.chars[run.pos];
+    var c = state.lenient ? strip(ch) : ch;
+    var seq = KMAP[c];
+    if (!seq) return;
+    var lights = [];
+    seq.forEach(function (s) {
+      mark(s.id);
+      lights.push([KEYS[s.id].f, s.id === "space" ? "esp" : s.id.toUpperCase()]);
+      if (s.shift) {
+        var sd = shiftSide(KEYS[s.id].f);
+        mark(sd);
+        lights.push([KEYS[sd].f, "⇧"]);
+      }
+    });
+    lightFingers(lights);
+    var last = seq[seq.length - 1], k = KEYS[last.id], txt = "";
+    var b = document.createElement("b");
+    b.textContent = c === " " ? "espaço" : c;
+    h.appendChild(document.createTextNode("Próxima tecla "));
+    h.appendChild(b);
+    if (c === " ") txt = " · use o polegar";
+    else if (seq.length === 2) {
+      var d = seq[0], dk = KEYS[d.id];
+      var dl2 = d.id === "´" ? (d.shift ? "`" : "´") : (d.shift ? "^" : "~");
+      txt = " · acento " + dl2 + (d.shift ? " (com Shift)" : "") + " com o " + FINGER[dk.f] + ", depois a letra com o " + FINGER[k.f] + (last.shift ? " + Shift" : "");
+    } else {
+      txt = " · " + FINGER[k.f] + (last.shift ? " + Shift " + (shiftSide(k.f) === "shiftR" ? "direito" : "esquerdo") : "");
+    }
+    h.appendChild(document.createTextNode(txt));
+  }
+
+  function same(exp, got) {
+    if (exp === got) return true;
+    return state.lenient && strip(exp) === strip(got);
+  }
+
+  function handleChar(ch) {
+    if (!run || run.done || view !== "train") return;
+    ch = ch.normalize("NFC");
+    if (ch === "\n" || ch === "\r" || ch === "\t") return;
+    var exp = run.chars[run.pos];
+    if (!run.start) run.start = performance.now();
+    if (same(exp, ch)) {
+      animateTypedChar(exp, true);
+      spans[run.pos].className = "c ok";
+      run.pos++;
+      if (run.pos >= run.chars.length) { finish(); return; }
+      spans[run.pos].className = "c cur";
+      highlightNext();
+    } else {
+      animateTypedChar(ch, false);
+      run.errors++;
+      var s = spans[run.pos];
+      s.classList.add("bad");
+      setTimeout(function () { s.classList.remove("bad"); }, 180);
+    }
+  }
+
+  function flush() {
+    var v = inp.value;
+    inp.value = "";
+    Array.from(v).forEach(handleChar);
+  }
+  inp.addEventListener("compositionstart", function () { composing = true; });
+  inp.addEventListener("compositionend", function () { composing = false; flush(); });
+  inp.addEventListener("input", function () { if (!composing) flush(); });
+  inp.addEventListener("focus", function () { card.classList.add("focused"); });
+  inp.addEventListener("blur", function () { card.classList.remove("focused"); });
+  card.addEventListener("click", function () { if (run && !run.done) inp.focus(); });
+
+  function finish() {
+    run.done = true;
+    run.end = performance.now();
+    clearInterval(timer);
+    updateStats();
+    var s = calc(), L = LEVELS[run.i], lv = state.levels[run.i];
+    var w = Math.floor(s.wpm + 1e-9), a = Math.floor(s.acc + 1e-9);
+    var okW = w >= L.wpm, okA = a >= L.acc, pass = okW && okA;
+    var wasDone = lv.p >= NEED, levelDone = false, courseDone = false;
+    state.rounds++;
+    if (w > lv.best) lv.best = w;
+    if (a > lv.bacc) lv.bacc = a;
+    if (pass) {
+      if (!wasDone) {
+        lv.p++;
+        lv.res.push({ w: w, a: a });
+        if (lv.p >= NEED) {
+          levelDone = true;
+          if (run.i === LEVELS.length - 1 && !state.done) { state.done = new Date().toISOString(); courseDone = true; }
+        }
+      }
+      lv.t = (lv.t + 1) % L.texts.length;
+    }
+    state.history = Array.isArray(state.history) ? state.history : [];
+    state.history.push({ date: new Date().toISOString(), level: run.i, w: w, a: a, sec: Math.round(s.sec), errors: s.errors, pass: pass });
+    if (state.history.length > 200) state.history = state.history.slice(-200);
+    saveState();
+    result = { i: run.i, w: w, a: a, sec: s.sec, errors: s.errors, okW: okW, okA: okA, pass: pass, wasDone: wasDone, levelDone: levelDone, courseDone: courseDone };
+    inp.blur();
+    renderResult();
+    show("result");
+    resultAt = performance.now();
+  }
+
+  /* ---------- resultado ---------- */
+  function tile(label, value, meta, cls) {
+    return '<div class="tile"><label>' + label + '</label><div class="v ' + (cls || "") + '">' + value + '</div><div class="m">' + meta + "</div></div>";
+  }
+  function renderResult() {
+    var r = result, L = LEVELS[r.i], lv = state.levels[r.i];
+    var tag, title, msg, primary, pAct;
+    if (r.pass) {
+      if (r.courseDone || (r.levelDone && r.i + 1 >= LEVELS.length)) { tag = "Curso concluído"; title = "Você é um digitador profissional!"; msg = "Exame final aprovado. Seu certificado está liberado."; primary = "Emitir meu certificado"; pAct = "cert"; }
+      else if (r.levelDone) { tag = "Nível concluído"; title = "Nível " + (r.i + 1) + " completo"; msg = "Três rodadas aprovadas. O Nível " + (r.i + 2) + " (" + LEVELS[r.i + 1].n + ") está liberado."; primary = "Ir para o Nível " + (r.i + 2); pAct = "next-level"; }
+      else if (r.wasDone) { tag = "Aprovado"; title = "Treino registrado"; msg = "Você bateu as metas deste nível de novo."; primary = "Treinar de novo"; pAct = "again"; }
+      else { tag = "Rodada aprovada"; title = "Muito bem!"; msg = "Você bateu a meta de velocidade e a de precisão."; primary = "Próxima rodada"; pAct = "again"; }
+    } else {
+      var miss = [];
+      if (!r.okW) miss.push("velocidade: " + r.w + " de " + L.wpm + " PPM");
+      if (!r.okA) miss.push("precisão: " + r.a + "% de " + L.acc + "%");
+      tag = "Ainda não"; title = "Falta pouco";
+      msg = "Ficou abaixo da meta em " + miss.join(" e ") + ". " + (!r.okA ? "Priorize acertar; a velocidade vem depois." : "Sua precisão está boa, agora ganhe ritmo.");
+      primary = "Tentar de novo"; pAct = "again";
+    }
+    var dots = "";
+    for (var k = 0; k < NEED; k++) dots += '<span class="dot' + (k < lv.p ? " on" : "") + '"></span>';
+    var m = Math.floor(r.sec / 60), sec = Math.floor(r.sec % 60);
+    $("resBox").innerHTML =
+      '<div class="res-top"><span class="res-tag ' + (r.pass ? "pass" : "fail") + '">' + tag + "</span>" +
+      '<h1 style="font-size:clamp(26px,4.5vw,36px)">' + title + '</h1><p class="lead">' + msg + "</p></div>" +
+      '<div class="stats">' +
+      tile("Velocidade", r.w, "Meta " + L.wpm + " PPM", r.okW ? "ok" : "bad") +
+      tile("Precisão", r.a + "%", "Meta " + L.acc + "%", r.okA ? "ok" : "bad") +
+      tile("Tempo", m + ":" + (sec < 10 ? "0" : "") + sec, "") +
+      tile("Erros", r.errors, "") + "</div>" +
+      '<div class="res-dots"><span class="dots">' + dots + "</span><span>Nível " + (r.i + 1) + " · " + lv.p + " de " + NEED + " rodadas aprovadas</span></div>" +
+      '<div class="row"><button class="btn primary" id="rPrimary" type="button" data-r="' + pAct + '">' + primary + '</button>' +
+      '<button class="btn" type="button" data-r="trail">Voltar à trilha</button></div>';
+  }
+  $("resBox").addEventListener("click", function (e) {
+    var b = e.target.closest("[data-r]");
+    if (!b || !result) return;
+    var a = b.getAttribute("data-r");
+    if (a === "again") startRound(result.i);
+    else if (a === "next-level") startRound(result.i + 1);
+    else if (a === "cert") show("cert");
+    else show("trail");
+  });
+
+  /* ---------- certificado ---------- */
+  function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
+  function certStats() {
+    var res = state.levels[LEVELS.length - 1].res, w = 0, a = 0;
+    if (res.length) {
+      res.forEach(function (r) { w += r.w; a += r.a; });
+      w = Math.round(w / res.length); a = Math.round(a / res.length);
+    } else { w = state.levels[LEVELS.length - 1].best; a = state.levels[LEVELS.length - 1].bacc; }
+    return { w: w, a: a };
+  }
+  function certDate() {
+    try { return new Date(state.done).toLocaleDateString("pt-BR", { day: "numeric", month: "long", year: "numeric" }); }
+    catch (e) { return ""; }
+  }
+  function certSVG(name, forPng) {
+    var st = certStats(), n = esc(name || "Seu nome completo");
+    var len = Math.max(8, (name || "Seu nome completo").length);
+    var fs = Math.max(34, Math.min(92, Math.floor(1150 / (len * 0.5))));
+    var ink = "#12214a", red = "#c9253a", soft = "#4a5578", serif = "Georgia, 'Times New Roman', serif";
+    var date = esc(certDate());
+    var size = forPng ? ' width="1600" height="1131"' : ' style="width:100%;height:auto;display:block"';
+    return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1131"' + size + ' role="img" aria-label="Certificado de conclusão">' +
+      '<rect width="1600" height="1131" fill="#fbfcff"/>' +
+      '<rect x="40" y="40" width="1520" height="1051" fill="none" stroke="' + ink + '" stroke-width="6"/>' +
+      '<rect x="64" y="64" width="1472" height="1003" fill="none" stroke="' + ink + '" stroke-width="1.5"/>' +
+      '<text x="800" y="175" text-anchor="middle" font-family="' + serif + '" font-size="34" letter-spacing="12" fill="' + soft + '">ACADEMIA TECLA VIVA</text>' +
+      '<text x="800" y="275" text-anchor="middle" font-family="' + serif + '" font-size="80" font-weight="bold" fill="' + ink + '">Certificado de Conclusão</text>' +
+      '<line x1="430" y1="315" x2="1170" y2="315" stroke="' + ink + '" stroke-width="3"/>' +
+      '<line x1="430" y1="325" x2="1170" y2="325" stroke="' + red + '" stroke-width="3"/>' +
+      '<text x="800" y="410" text-anchor="middle" font-family="' + serif + '" font-size="34" font-style="italic" fill="' + soft + '">Certificamos que</text>' +
+      '<text x="800" y="540" text-anchor="middle" font-family="' + serif + '" font-size="' + fs + '" font-style="italic" fill="' + ink + '">' + n + '</text>' +
+      '<line x1="280" y1="574" x2="1320" y2="574" stroke="' + ink + '" stroke-width="1.5"/>' +
+      '<text x="800" y="654" text-anchor="middle" font-family="' + serif + '" font-size="34" fill="' + ink + '">concluiu com aproveitamento o Curso de Digitação Profissional,</text>' +
+      '<text x="800" y="704" text-anchor="middle" font-family="' + serif + '" font-size="34" fill="' + ink + '">cumprindo os 10 níveis da trilha, com velocidade final de ' + st.w + ' PPM</text>' +
+      '<text x="800" y="754" text-anchor="middle" font-family="' + serif + '" font-size="34" fill="' + ink + '">e precisão de ' + st.a + '% no exame final.</text>' +
+      '<text x="350" y="895" text-anchor="middle" font-family="' + serif + '" font-size="28" fill="' + ink + '">' + date + '</text>' +
+      '<line x1="180" y1="912" x2="520" y2="912" stroke="' + ink + '" stroke-width="1.5"/>' +
+      '<text x="350" y="952" text-anchor="middle" font-family="' + serif + '" font-size="24" fill="' + soft + '">Data de emissão</text>' +
+      '<path d="M1110 888 c28-62 52 30 82-18 s40-44 72 8 s52 22 84-10" fill="none" stroke="' + ink + '" stroke-width="3" stroke-linecap="round"/>' +
+      '<line x1="1080" y1="912" x2="1420" y2="912" stroke="' + ink + '" stroke-width="1.5"/>' +
+      '<text x="1250" y="952" text-anchor="middle" font-family="' + serif + '" font-size="24" fill="' + soft + '">Direção Acadêmica</text>' +
+      '<circle cx="800" cy="890" r="80" fill="none" stroke="' + red + '" stroke-width="5"/>' +
+      '<circle cx="800" cy="890" r="68" fill="none" stroke="' + ink + '" stroke-width="2"/>' +
+      '<text x="800" y="910" text-anchor="middle" font-family="' + serif + '" font-size="58" font-weight="bold" fill="' + ink + '">TV</text>' +
+      '<text x="800" y="1032" text-anchor="middle" font-family="' + serif + '" font-size="21" fill="' + soft + '">Certificado de prática pessoal emitido por instituição fictícia. Sem valor oficial.</text>' +
+      "</svg>";
+  }
+
+  var nameInput = $("nameInput");
+  function renderCert() {
+    var ok = !!state.done;
+    $("certLocked").hidden = ok;
+    $("certReady").hidden = !ok;
+    if (!ok) {
+      var left = LEVELS.length * NEED - totalPasses(state);
+      $("certLockedText").textContent = "Conclua os 10 níveis da trilha, incluindo o Exame Profissional, para emitir o certificado. Faltam " + left + " rodadas aprovadas.";
+      return;
+    }
+    if (nameInput.value !== state.name && document.activeElement !== nameInput) nameInput.value = state.name;
+    drawCert();
+  }
+  function drawCert() {
+    var nm = nameInput.value.trim();
+    $("certBox").innerHTML = certSVG(nm, false);
+    $("btnSavePng").disabled = nm.length < 3;
+  }
+  nameInput.addEventListener("input", drawCert);
+  nameInput.addEventListener("change", function () {
+    state.name = nameInput.value.trim().slice(0, 60);
+    saveState();
+  });
+
+  function deliver(blob, filename) {
+    var msg = $("certMsg");
+    if (dl) {
+      dl.save({ filename: filename, data: blob }).then(function () { msg.textContent = "Imagem salva."; })
+        .catch(function (err) {
+          var c = err && err.code;
+          msg.textContent = c === "declined" ? "Salvamento cancelado." : "Não foi possível salvar aqui.";
+        });
+      return;
+    }
+    try {
+      var url = URL.createObjectURL(blob), a = document.createElement("a");
+      a.href = url; a.download = filename;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
+      msg.textContent = "Download iniciado.";
+    } catch (e) { msg.textContent = "Não foi possível salvar aqui."; }
+  }
+  $("btnSavePng").addEventListener("click", function () {
+    var nm = nameInput.value.trim();
+    if (nm.length < 3) return;
+    state.name = nm.slice(0, 60);
+    saveState();
+    $("certMsg").textContent = "Gerando imagem…";
+    var img = new Image();
+    img.onload = function () {
+      var c = document.createElement("canvas");
+      c.width = 1600; c.height = 1131;
+      c.getContext("2d").drawImage(img, 0, 0, 1600, 1131);
+      c.toBlob(function (b) {
+        if (!b) { $("certMsg").textContent = "Não foi possível gerar a imagem."; return; }
+        deliver(b, "certificado-tecla-viva.png");
+      }, "image/png");
+    };
+    img.onerror = function () { $("certMsg").textContent = "Não foi possível gerar a imagem."; };
+    img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(certSVG(state.name, true));
+  });
+
+  /* ---------- ajustes ---------- */
+  var resetArm = 0;
+  $("tabSet").addEventListener("click", function () {
+    var p = $("settings"), open = p.hidden;
+    p.hidden = !open;
+    $("profilePanel").hidden = true;
+    $("tabProfile").setAttribute("aria-expanded", "false");
+    $("tabSet").setAttribute("aria-expanded", String(open));
+  });
+  $("optLenient").checked = state.lenient;
+  $("optSound").checked = state.sound !== false;
+  $("optSound").addEventListener("change", function () {
+    state.sound = $("optSound").checked;
+    saveState();
+    if (state.sound) playFeedback(true);
+  });
+  $("optLenient").addEventListener("change", function () {
+    state.lenient = $("optLenient").checked;
+    saveState();
+    if (view === "train") highlightNext();
+  });
+  $("btnReset").addEventListener("click", function () {
+    var btn = $("btnReset");
+    if (!resetArm) {
+      resetArm = setTimeout(function () { resetArm = 0; btn.textContent = "Recomeçar o curso do zero"; $("resetNote").textContent = ""; }, 6000);
+      btn.textContent = "Confirmar: apagar todo o progresso";
+      $("resetNote").textContent = "Clique de novo em até 6 segundos.";
+      return;
+    }
+    clearTimeout(resetArm); resetArm = 0;
+    var keep = state.lenient, keepSound = state.sound !== false;
+    state = fresh(); state.lenient = keep; state.sound = keepSound;
+    saveState();
+    btn.textContent = "Recomeçar o curso do zero";
+    $("resetNote").textContent = "Progresso apagado.";
+    nameInput.value = "";
+    show("trail");
+  });
+
+  /* ---------- perfis locais / login de demonstração ---------- */
+  function updateProfileUI() {
+    var email = currentProfile || "";
+    $("profileEmail").value = email;
+    $("profileStatus").textContent = email
+      ? "Perfil local ativo: " + email + " · progresso separado neste navegador."
+      : "Nenhum perfil selecionado. O progresso usa o perfil padrão deste navegador.";
+    $("btnProfileLogout").disabled = !email;
+  }
+  $("tabProfile").addEventListener("click", function() {
+    var panel = $("profilePanel");
+    panel.hidden = !panel.hidden;
+    $("tabProfile").setAttribute("aria-expanded", String(!panel.hidden));
+    $("settings").hidden = true;
+    $("tabSet").setAttribute("aria-expanded", "false");
+    if (!panel.hidden) updateProfileUI();
+  });
+  $("btnProfileLogin").addEventListener("click", function() {
+    var email = $("profileEmail").value.trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      $("profileStatus").textContent = "Digite um e-mail válido para criar ou abrir o perfil local.";
+      $("profileEmail").focus(); return;
+    }
+    if (currentProfile === email) { updateProfileUI(); return; }
+    saveLocal();
+    var targetKey = profileStoreKey(email), targetExists = false;
+    try { targetExists = !!localStorage.getItem(targetKey); } catch (e) {}
+    /* O primeiro perfil criado pode levar consigo o progresso do perfil padrão.
+       Perfis adicionais começam separados e não recebem o progresso de outra pessoa. */
+    var carryState = !targetExists && !currentProfile ? JSON.stringify(state) : null;
+    try {
+      if (carryState) localStorage.setItem(targetKey, carryState);
+      localStorage.setItem(PROFILE_KEY, email);
+    } catch (e) {}
+    currentProfile = email;
+    state = loadLocal();
+    $("optLenient").checked = state.lenient;
+    $("optSound").checked = state.sound !== false;
+    nameInput.value = state.name || "";
+    renderTrail();
+    if (view === "stats") renderStats();
+    if (view === "cert") renderCert();
+    saveState();
+    updateProfileUI();
+    setSaveStatus("Perfil local aberto. Lembre-se: isso não é uma conta online.", true);
+  });
+  $("btnProfileLogout").addEventListener("click", function() {
+    saveState();
+    currentProfile = "";
+    try { localStorage.removeItem(PROFILE_KEY); } catch (e) {}
+    state = loadLocal();
+    $("optLenient").checked = state.lenient;
+    $("optSound").checked = state.sound !== false;
+    nameInput.value = state.name || "";
+    renderTrail();
+    if (view === "stats") renderStats();
+    if (view === "cert") renderCert();
+    updateProfileUI();
+  });
+  $("btnProfileBackup").addEventListener("click", exportBackup);
+  $("btnProfileRestore").addEventListener("click", function() { $("importFile").click(); });
+  updateProfileUI();
+
+  /* ---------- botões e teclado ---------- */
+  $("tabTrail").addEventListener("click", function () { $("profilePanel").hidden = true; $("settings").hidden = true; show("trail"); });
+  $("tabStats").addEventListener("click", function () { $("profilePanel").hidden = true; $("settings").hidden = true; show("stats"); });
+  $("tabCert").addEventListener("click", function () { $("profilePanel").hidden = true; $("settings").hidden = true; show("cert"); });
+  $("btnStatsBack").addEventListener("click", function () { show("trail"); });
+  $("btnStatsExport").addEventListener("click", exportBackup);
+  $("btnExport").addEventListener("click", exportBackup);
+  $("btnImport").addEventListener("click", function () { $("importFile").click(); });
+  $("importFile").addEventListener("change", function () {
+    var file = this.files && this.files[0];
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function () {
+      try {
+        var data = JSON.parse(String(reader.result || ""));
+        var imported = normalize(data && data.state ? data.state : data);
+        if (!confirm("Restaurar esta cópia? O progresso atual será substituído.")) return;
+        state = imported;
+        saveState();
+        $("optLenient").checked = state.lenient;
+        $("optSound").checked = state.sound !== false;
+        nameInput.value = state.name || "";
+        renderTrail();
+        setSaveStatus("Cópia restaurada com sucesso.", true);
+        if (view === "stats") renderStats();
+        if (view === "cert") renderCert();
+        updateProfileUI();
+      } catch (e) {
+        setSaveStatus("Arquivo inválido. Selecione uma cópia JSON do Tecla Viva.", false);
+        alert("Não consegui ler essa cópia. Confira se é um arquivo JSON exportado pelo Tecla Viva.");
+      } finally { $("importFile").value = ""; }
+    };
+    reader.readAsText(file);
+  });
+  $("btnDaily").addEventListener("click", function () {
+    var ci = currentIdx();
+    var i = ci < 0 ? LEVELS.length - 1 : ci;
+    var lv = state.levels[i];
+    lv.t = (lv.t + 1) % LEVELS[i].texts.length;
+    saveState();
+    $("dailyNote").textContent = "Desafio iniciado no Nível " + (i + 1) + ". O resultado será registrado no histórico.";
+    startRound(i);
+  });
+  $("btnToTrail").addEventListener("click", function () { show("trail"); });
+  $("btnBack").addEventListener("click", function () { show("trail"); });
+  $("btnRestart").addEventListener("click", function () { if (run) startRound(run.i); });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && view === "train" && run) { e.preventDefault(); startRound(run.i); return; }
+    if (e.key === "Enter" && view === "result" && performance.now() - resultAt > 700) {
+      if (e.target && e.target.closest && e.target.closest("button")) return;
+      var p = $("rPrimary");
+      if (p) p.click();
+    }
+  });
+
+  /* ---------- nuvem (opcional) ---------- */
+  function initCloud() {
+    if (!window.claude || !window.claude.use) return;
+    window.claude.use("downloads").then(function (d) { dl = d; }).catch(function () {});
+    Promise.all([window.claude.use("db"), window.claude.use("user")]).then(function (r) {
+      var db = r[0], user = r[1];
+      if (!db || !user) return null;
+      return user.id().then(function (id) {
+        if (!id) return null;
+        cloud.ref = db.doc("data/users/" + id + "/profile");
+        return cloud.ref.get();
+      });
+    }).then(function (snap) {
+      if (!snap || !cloud.ref) return;
+      var remote = snap.exists && snap.data() && snap.data().state;
+      if (remote) {
+        var rs = normalize(remote);
+        if (totalPasses(rs) >= totalPasses(state)) {
+          var keep = state.lenient;
+          state = rs; state.lenient = keep || rs.lenient;
+          saveLocal();
+          $("optLenient").checked = state.lenient;
+          $("optSound").checked = state.sound !== false;
+          if (view === "trail") renderTrail();
+          if (view === "cert") renderCert();
+        } else { pushCloud(); }
+      } else if (totalPasses(state) > 0 || state.name) { pushCloud(); }
+    }).catch(function () {});
+  }
+
+  window.addEventListener("beforeunload", function () { saveLocal(); });
+  document.addEventListener("visibilitychange", function () { if (document.visibilityState === "hidden") saveLocal(); });
+  show("trail");
+  initCloud();
+})();
+</script>
+
+</body></html>
